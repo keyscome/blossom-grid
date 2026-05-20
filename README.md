@@ -1,126 +1,182 @@
-# Blossom Grid (Godot 4.x MVP)
+# Blossom Grid — Core Feel Prototype
 
-一个「放松型、无限成长、数字自然演化」独立游戏 MVP。
+> 目标只有一个：**验证"一次合成是否足够舒服"。**
 
-> 目标不是“刺激”，而是“舒服”。
+这不是完整游戏。没有关卡、没有 roguelike、没有任务系统。  
+只有一件事：**滑动 → 合成 → 感受生长。**
 
-## 1) 项目结构
+---
+
+## 项目结构
 
 ```
-/home/runner/work/blossom-grid/blossom-grid
+blossom-grid/
 ├── project.godot
-├── scenes
-│   └── Main.tscn
-├── scripts
-│   ├── Main.gd
-│   └── Board.gd
-├── config
-│   └── tile_config.json
-├── tests
+├── scenes/
+│   └── Main.tscn          # 场景：背景 + VBox + Board + Reset按钮
+├── scripts/
+│   ├── Main.gd            # 输入转发（方向键/WASD/R）
+│   └── Board.gd           # 全部核心逻辑 + 动画 + 视觉
+├── config/
+│   └── tile_config.json   # 极简配置（bloom概率 + 生成权重）
+├── tests/
 │   └── board_logic_test.gd
-├── assets
-│   └── ui-preview.png
-└── README.md
+└── assets/
+    └── ui-preview.png
 ```
 
-## 2) 场景结构
+---
 
-- `Main.tscn`
-  - `Main (Control)`
-    - `Background (ColorRect)`
-    - `VBox (VBoxContainer)`
-      - `Title (Label)`
-      - `Subtitle (Label)`
-      - `Board (Control + Board.gd)`
-      - `Hint (Label)`
+## 场景结构
 
-## 3) 核心代码
+```
+Main (Control + Main.gd)
+└── Background (ColorRect)        # 暖米色背景
+└── VBox (VBoxContainer)
+    ├── Title (Label)              # "Blossom Grid"
+    ├── Subtitle (Label)           # "Slide gently. Watch things grow."
+    ├── Board (Control + Board.gd) # 4×4 棋盘，全部逻辑在此
+    ├── BottomRow (HBoxContainer)
+    │   └── ResetButton (Button)   # "↺ new garden"
+    └── Hint (Label)               # 操作提示
+```
 
-- `Main.gd`：输入转发（方向键 / WASD）
-- `Board.gd`：
-  - 4x4 棋盘模型
-  - 滑动 + 合成（2048 风格）
-  - 无限模式（无失败惩罚，仅无可动时等待自然涌现）
-  - 特殊块系统（Bloom/Moss/Flow/Echo）
-  - 柔和绘制（暖色、低饱和）
+---
 
-## 4) 棋盘逻辑
+## 棋盘逻辑（Board.gd）
 
-- 固定 `BOARD_SIZE = 4`
-- 每次有效滑动后：
-  1. 线性压缩
-  2. 同值合成
-  3. 处理特殊块后效
-  4. 被动特性更新
-  5. 生成新块
+### 数据结构
 
-## 5) 合成逻辑
-
-- 同值块合成为双倍值
-- `merge_delta` 记录本轮合成增量（供 Echo 使用）
-- Bloom 参与合成会额外生成低级块
-
-## 6) 特殊块系统
-
-- **Bloom**：合成触发后额外生成一个 `2`
-- **Moss**：每轮缓慢提升一个邻居（数值翻倍）
-- **Flow**：每轮尝试缓慢移动并推动链条
-- **Echo**：在发生合成后，复制一次邻近“升级”效果
-
-## 7) 动画系统（MVP）
-
-当前为轻量方案：
-- 低对比暖色块面
-- 柔和圆角与文字提示
-
-> 下一步可接入 Tween（缩放脉冲、位移动画）与轻音效总线。
-
-## 8) 数据结构
-
-每个格子为字典：
-
+每个格子：
 ```gdscript
-{"value": int, "special": String}
+{"value": int, "special": String}  # special = "none" | "bloom"
 ```
 
-棋盘为 `Array[Array[Dictionary]]`。
+棋盘：`grid[y][x]`（Array of Array of Dictionary）  
+视觉层：`tile_nodes[y][x]`（Panel 节点或 null）
 
-## 9) JSON 配置
+### 合成流程
 
-`config/tile_config.json` 驱动：
-- 出生数值池 `spawn_values`
-- 特殊块权重 `special_weights`
-- 特殊块颜色 `special_colors`
+每次有效滑动：
+1. `_slide_and_merge()` — 计算逻辑结果，返回 `tile_moves` / `merged_positions` / `bloom_positions`
+2. `_run_move_animation()` — 异步驱动全部动画阶段（见下方）
+3. 动画结束后 `is_locked = false`，接受下一次输入
 
-## 10) 测试方案
+---
 
-仓库当前没有现成 Godot CI/测试基建，MVP 使用以下聚焦验证：
+## Bloom 逻辑
 
-- 自动化脚本测试（在 Godot 4.x 环境执行）：
-  - `godot --headless --path . -s res://tests/board_logic_test.gd`（若本机命令名为 `godot4`，请替换为 `godot4`）
-- 手动功能测试：
-  - 四方向滑动与同值合成
-  - Bloom/Moss/Flow/Echo 行为触发
-  - 长时间游玩稳定性（无限成长）
-- 配置测试：
-  - JSON 可解析
-  - 权重总和 > 0
+- 每个新生成的 tile 有 **12 %** 概率带 Bloom 标记（右上角粉色小圆点）
+- Bloom tile 参与合成时：在合成位置**周围**随机萌发 1-2 个 seed（值为 2）
+- 萌发动画：从小到大 + 透明渐显 + 微微上浮，像植物冒出土壤
 
-## 11) 运行方式
+---
 
-在本机安装 Godot 4.5.1（或兼容 4.5.x）后：
+## 动画系统
 
-1. 打开项目目录
-2. 运行主场景 `res://scenes/Main.tscn`
-3. 使用方向键或 WASD 操作
+`_run_move_animation()` 按阶段顺序运行（async coroutine）：
 
-## UI 预览截图
+| 阶段 | 内容 | 时长 |
+|------|------|------|
+| 1 · Slide | 所有 tile 节点 Tween 到新坐标 | 0.12 s |
+| 2 · Reconcile | 释放被合并的节点，更新存活节点的视觉 | 即时 |
+| 3 · Merge pulse | 合并目标 tile 轻微膨胀 → 回弹 | 0.22 s |
+| 4 · Spawn | 新 tile 从小→大 + 透明渐显 | 0.36 s |
+| 5 · Bloom burst | 若有 Bloom 触发，萌发 seed tiles | +0.08 s delay |
 
-- `assets/ui-preview.png`（当前沙箱无 Godot 运行时，故提供同风格 MVP mockup 截图）
+**棋盘呼吸：** Board 节点本身持续以 5 s 周期、0.3 % 幅度做缩放振荡，
+给棋盘一种安静的"活着"的感觉。
 
-## 12) 后续扩展建议
+---
 
-- 加入真实 Tween 动画与柔和音效层
-- 增加“生态事件”（季节、雨露）作为低压力随机变化
-- 增加可选“冥想 UI 模式”（隐藏数字，仅显示成长节奏）
-- 增加存档与长期花园演化统计
+## 生长阶段 & 颜色方案
+
+| 数值 | 阶段 | 背景色 |
+|------|------|--------|
+| 2 | seed | 暖土棕 `#c8b090` |
+| 4 | sprout | 嫩绿 `#acc882` |
+| 8 | leaf | 叶绿 `#78aa68` |
+| 16 | bud | 金黄 `#d4b870` |
+| 32 | bloom | 暖橙 `#e89060` |
+| 64 | flower | 玫瑰红 `#e07878` |
+| 128 | petal | 薰衣草紫 `#cc8cd0` |
+| 256 | drift | 天空蓝 `#88b8e8` |
+| 512 | glow | 明黄 `#ece870` |
+| 1024 | radiance | 琥珀 `#f8c858` |
+| 2048 | ethereal | 乳白 `#fff4dc` |
+
+棋盘背景：`#d4c8b4`（暖灰褐）  
+空格槽：`#c0b8a8`（稍深）  
+页面背景：`#eeeae1`（暖米色）
+
+---
+
+## 音效触发方案（当前为占位）
+
+Board 预留 `MergeSfx`（AudioStreamPlayer）接口。  
+风格参考：木头轻叩 · 水滴 · 风铃 · 玻璃摩擦  
+触发点：
+- 合成成功 → 短促木声
+- Bloom 萌发 → 轻柔水声或风铃
+- 新 tile 生成 → 极轻的纸张声
+
+---
+
+## UI 方案
+
+极简三要素：
+- **Board** — 游戏主体，占满中心
+- **Reset 按钮** — 平铺式，低存在感（"↺ new garden"）
+- **Hint** — 一行操作提示，字号小，颜色淡
+
+无 HUD、无分数、无状态栏。
+
+---
+
+## 运行方式
+
+安装 Godot 4.5.x，打开项目后运行主场景：
+
+```
+res://scenes/Main.tscn
+```
+
+| 输入 | 动作 |
+|------|------|
+| Arrow keys / WASD | 滑动 |
+| R | 重新开始 |
+
+---
+
+## 测试
+
+```bash
+godot --headless --path . -s res://tests/board_logic_test.gd
+# 若命令名为 godot4：
+godot4 --headless --path . -s res://tests/board_logic_test.gd
+```
+
+测试覆盖：
+- 基本滑动 + 合并
+- `tile_moves` 追踪（from/to/consumed）
+- Bloom 触发位置记录
+- 无效移动检测（已压紧、不同值）
+- 合并目标值验证
+
+---
+
+## 验证"舒服感"
+
+**通过标准：**
+
+1. 做第一次合成时，感觉是"这个东西长大了"，而不是"数字变了"
+2. 合成动画（膨胀→回落）让人下意识想再做一次
+3. Bloom 萌发时，感觉像植物真的在生长
+4. 可以不看数字，只看颜色和形状感受成长节奏
+5. 棋盘在静止时也感觉是"活的"（呼吸感）
+
+**失败标准：**
+
+- 动画感觉太快、太硬、太"数据"
+- 看不出 seed → flower 的色彩旅程
+- 停下来等动画结束时感觉烦躁而非平静
