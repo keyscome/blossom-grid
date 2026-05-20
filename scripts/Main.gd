@@ -28,3 +28,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			board.apply_player_move(Vector2i.UP)
 		elif event.keycode == KEY_S:
 			board.apply_player_move(Vector2i.DOWN)
+		elif event.keycode == KEY_R:
+			_on_reset_pressed()
+
+func _on_reset_pressed() -> void:
+	if board.has_method("reset"):
+		board.reset()

@@ -19,7 +19,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.95, 0.93, 0.88, 1)
+color = Color(0.937, 0.918, 0.882, 1)
 
 [node name="VBox" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -28,32 +28,55 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -300.0
-offset_right = 220.0
-offset_bottom = 300.0
+offset_left = -230.0
+offset_top = -290.0
+offset_right = 230.0
+offset_bottom = 310.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 36
+theme_override_font_sizes/font_size = 34
+theme_override_colors/font_color = Color(0.38, 0.32, 0.26, 1)
 text = "Blossom Grid"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="VBox"]
 layout_mode = 2
-text = "Slide gently. Let numbers bloom."
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.55, 0.48, 0.40, 1)
+text = "Slide gently.  Watch things grow."
 horizontal_alignment = 1
 
 [node name="Board" type="Control" parent="VBox"]
-custom_minimum_size = Vector2(420, 420)
+custom_minimum_size = Vector2(430, 430)
 layout_mode = 2
 size_flags_horizontal = 4
 script = ExtResource("2_board")
 
+[node name="BottomRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="ResetButton" type="Button" parent="VBox/BottomRow"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.55, 0.48, 0.40, 1)
+text = "↺  new garden"
+flat = true
+action_mode = 0
+script_signal_connected = false
+
 [node name="Hint" type="Label" parent="VBox"]
 layout_mode = 2
-text = "Arrow keys / WASD · Endless · No failure"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.62, 0.56, 0.48, 1)
+text = "Arrow keys / WASD  ·  R to restart  ·  endless"
 horizontal_alignment = 1
+
+[connection signal="pressed" from="VBox/BottomRow/ResetButton" to="Main" method="_on_reset_pressed"]

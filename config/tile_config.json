@@ -1,17 +1,4 @@
 {
-  "spawn_values": [2, 2, 2, 4],
-  "special_weights": {
-    "none": 78,
-    "bloom": 9,
-    "moss": 7,
-    "flow": 4,
-    "echo": 2
-  },
-  "special_colors": {
-    "none": "#d9c7a5",
-    "bloom": "#f3b5d0",
-    "moss": "#b9c7a4",
-    "flow": "#9bc4dd",
-    "echo": "#d2b9ef"
-  }
+  "bloom_chance": 0.12,
+  "spawn_weights": { "2": 9, "4": 1 }
 }
