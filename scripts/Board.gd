@@ -37,7 +37,7 @@ func _load_config() -> void:
 		push_warning("Failed to load tile_config.json, using defaults")
 		return
 
-	var parsed := JSON.parse_string(file.get_as_text())
+	var parsed = JSON.parse_string(file.get_as_text())
 	if typeof(parsed) == TYPE_DICTIONARY:
 		config.merge(parsed, true)
 		var mapped_colors := {}
@@ -187,7 +187,7 @@ func _try_flow_move(start: Vector2i, dir: Vector2i) -> void:
 	if not _inside(end):
 		return
 	if grid[end.y][end.x]["value"] == 0:
-		var temp := grid[start.y][start.x]
+		var temp: Dictionary = grid[start.y][start.x]
 		grid[start.y][start.x] = _empty_cell()
 		grid[end.y][end.x] = temp.duplicate(true)
 		return
@@ -203,8 +203,8 @@ func _try_flow_move(start: Vector2i, dir: Vector2i) -> void:
 		chain.append(cursor)
 
 	for i in range(chain.size() - 1, -1, -1):
-		var from_pos := chain[i]
-		var to_pos := from_pos + dir
+		var from_pos: Vector2i = chain[i]
+		var to_pos: Vector2i = from_pos + dir
 		grid[to_pos.y][to_pos.x] = grid[from_pos.y][from_pos.x].duplicate(true)
 	grid[end.y][end.x] = grid[start.y][start.x].duplicate(true)
 	grid[start.y][start.x] = _empty_cell()
@@ -225,7 +225,7 @@ func _apply_echo() -> void:
 func _neighbors(pos: Vector2i) -> Array:
 	var result: Array = []
 	for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-		var n := pos + d
+		var n: Vector2i = pos + d
 		if _inside(n):
 			result.append(n)
 	return result
