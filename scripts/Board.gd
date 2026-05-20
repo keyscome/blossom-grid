@@ -294,9 +294,14 @@ func _draw() -> void:
       draw_rect(rect, base_color if cell["value"] > 0 else Color("ece4d6"), true)
       if cell["value"] > 0:
         var text := str(cell["value"])
-        var font := ThemeDB.fallback_font
+        var font: Font = get_theme_default_font()
+        if font == null:
+          font = ThemeDB.fallback_font
+        if font == null:
+          continue
+
         var font_size := 26
         var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
         draw_string(font, rect.position + (rect.size - text_size) * 0.5 + Vector2(0, text_size.y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("3f3528"))
         if cell["special"] != "none":
-          draw_string(font, rect.position + Vector2(8, 20), cell["special"].left(1).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("5f5344"))
+          draw_string(font, rect.position + Vector2(8, 20), cell["special"].substr(0, 1).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("5f5344"))

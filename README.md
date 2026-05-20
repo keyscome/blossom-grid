@@ -97,7 +97,7 @@
 仓库当前没有现成 Godot CI/测试基建，MVP 使用以下聚焦验证：
 
 - 自动化脚本测试（在 Godot 4.x 环境执行）：
-  - `godot4 --headless --path . -s res://tests/board_logic_test.gd`
+  - `godot4 --headless --path . -s res://tests/board_logic_test.gd`（若本机命令名为 `godot`，请替换为 `godot`）
 - 手动功能测试：
   - 四方向滑动与同值合成
   - Bloom/Moss/Flow/Echo 行为触发
@@ -108,7 +108,7 @@
 
 ## 11) 运行方式
 
-在本机安装 Godot 4.x 后：
+在本机安装 Godot 4.5.1（或兼容 4.5.x）后：
 
 1. 打开项目目录
 2. 运行主场景 `res://scenes/Main.tscn`
