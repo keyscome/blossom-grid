@@ -9,9 +9,9 @@ var previous_merge_delta := 0
 var config := {
   "spawn_values": [2, 2, 2, 4],
   "special_weights": {
-    "none": 80,
-    "bloom": 8,
-    "moss": 6,
+    "none": 78,
+    "bloom": 9,
+    "moss": 7,
     "flow": 4,
     "echo": 2
   },
@@ -34,6 +34,7 @@ func start() -> void:
 func _load_config() -> void:
   var file := FileAccess.open("res://config/tile_config.json", FileAccess.READ)
   if file == null:
+    push_warning("Failed to load tile_config.json, using defaults")
     return
 
   var parsed := JSON.parse_string(file.get_as_text())
@@ -43,6 +44,8 @@ func _load_config() -> void:
     for key in config["special_colors"].keys():
       mapped_colors[key] = Color(str(config["special_colors"][key]))
     config["special_colors"] = mapped_colors
+  else:
+    push_warning("Malformed tile_config.json, using defaults")
 
 func _reset_grid() -> void:
   grid.clear()
@@ -113,6 +116,7 @@ func _merge_special(a: String, b: String) -> String:
     return b
   if b == "none":
     return a
+  # Keep left tile special when both are non-none and different.
   return a
 
 func _extract_line(index: int, direction: Vector2i) -> Array:
@@ -185,7 +189,7 @@ func _try_flow_move(start: Vector2i, dir: Vector2i) -> void:
   if grid[end.y][end.x]["value"] == 0:
     var temp := grid[start.y][start.x]
     grid[start.y][start.x] = _empty_cell()
-    grid[end.y][end.x] = temp
+    grid[end.y][end.x] = temp.duplicate(true)
     return
 
   var chain: Array = [end]
@@ -201,8 +205,8 @@ func _try_flow_move(start: Vector2i, dir: Vector2i) -> void:
   for i in range(chain.size() - 1, -1, -1):
     var from_pos := chain[i]
     var to_pos := from_pos + dir
-    grid[to_pos.y][to_pos.x] = grid[from_pos.y][from_pos.x]
-  grid[end.y][end.x] = grid[start.y][start.x]
+    grid[to_pos.y][to_pos.x] = grid[from_pos.y][from_pos.x].duplicate(true)
+  grid[end.y][end.x] = grid[start.y][start.x].duplicate(true)
   grid[start.y][start.x] = _empty_cell()
 
 func _apply_echo() -> void:
@@ -216,7 +220,7 @@ func _apply_echo() -> void:
       for n in _neighbors(Vector2i(x, y)):
         if grid[n.y][n.x]["value"] > 0:
           grid[n.y][n.x]["value"] *= 2
-          return
+          break
 
 func _neighbors(pos: Vector2i) -> Array:
   var result: Array = []
@@ -229,7 +233,7 @@ func _neighbors(pos: Vector2i) -> Array:
 func _inside(p: Vector2i) -> bool:
   return p.x >= 0 and p.x < BOARD_SIZE and p.y >= 0 and p.y < BOARD_SIZE
 
-func spawn_tile(force_value := -1, force_special := "") -> bool:
+func spawn_tile(override_value := -1, override_special := "") -> bool:
   var empties: Array = []
   for y in BOARD_SIZE:
     for x in BOARD_SIZE:
@@ -238,25 +242,29 @@ func spawn_tile(force_value := -1, force_special := "") -> bool:
   if empties.is_empty():
     return false
 
-  var pos: Vector2i = empties[randi() % empties.size()]
-  var value := force_value if force_value > 0 else _random_spawn_value()
-  var special := force_special if force_special != "" else _random_special()
+  var pos: Vector2i = empties.pick_random()
+  var value := override_value if override_value != -1 else _random_spawn_value()
+  var special := override_special if override_special != "" else _random_special()
   grid[pos.y][pos.x] = {"value": value, "special": special}
   return true
 
 func _random_spawn_value() -> int:
   var pool: Array = config.get("spawn_values", [2, 2, 2, 4])
-  return int(pool[randi() % pool.size()])
+  return int(pool.pick_random())
 
 func _random_special() -> String:
   var weights: Dictionary = config.get("special_weights", {"none": 100})
+  var keys: Array = weights.keys()
+  keys.sort()
   var total := 0
-  for key in weights.keys():
+  for key in keys:
     total += int(weights[key])
+  if total <= 0:
+    return "none"
 
-  var roll := randi() % max(total, 1)
+  var roll := randi() % total
   var acc := 0
-  for key in weights.keys():
+  for key in keys:
     acc += int(weights[key])
     if roll < acc:
       return key
