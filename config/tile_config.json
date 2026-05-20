@@ -1,7 +1,4 @@
 {
   "bloom_chance": 0.12,
-  "spawn_weights": {
-    "2": 9,
-    "4": 1
-  }
+  "spawn_weights": { "2": 9, "4": 1 }
 }

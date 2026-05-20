@@ -15,8 +15,9 @@ const SPAWN_DUR := 0.36
 const BREATHE_PERIOD := 5.0
 const BREATHE_SCALE := 0.003
 
-# 12 % of newly spawned tiles carry the Bloom tag
-const BLOOM_CHANCE := 0.12
+# Default fallbacks; overridden at start() from config/tile_config.json
+var bloom_chance := 0.12
+var spawn_weights: Dictionary = {"2": 9, "4": 1}
 
 # Board background colours
 const BOARD_BG := Color("#d4c8b4")
@@ -54,11 +55,27 @@ var breathe_tween: Tween = null
 # ─── Lifecycle ────────────────────────────────────────────────────────────────
 
 func start() -> void:
+	_load_config()
 	_reset_grid()
 	_init_tile_nodes()
 	_spawn_tile(true)
 	_spawn_tile(true)
 	_start_breathing()
+
+func _load_config() -> void:
+	var file := FileAccess.open("res://config/tile_config.json", FileAccess.READ)
+	if file == null:
+		push_warning("tile_config.json not found, using defaults")
+		return
+	var parsed = JSON.parse_string(file.get_as_text())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_warning("tile_config.json malformed, using defaults")
+		return
+	var cfg: Dictionary = parsed
+	if cfg.has("bloom_chance"):
+		bloom_chance = float(cfg["bloom_chance"])
+	if cfg.has("spawn_weights") and typeof(cfg["spawn_weights"]) == TYPE_DICTIONARY:
+		spawn_weights = cfg["spawn_weights"]
 
 func reset() -> void:
 	if breathe_tween:
@@ -188,7 +205,7 @@ func _update_tile_visual(panel: Panel, value: int, special: String) -> void:
 	var stage_key: int = _get_stage_key(value)
 	var data: Dictionary = STAGE_DATA.get(stage_key, STAGE_DATA[2])
 
-	var bg_color := Color(str(data["bg"]))
+	var bg_color := Color(data["bg"] as String)
 	if special == "bloom":
 		bg_color = bg_color.lerp(Color("#f3b5d0"), 0.28)
 
@@ -196,7 +213,7 @@ func _update_tile_visual(panel: Panel, value: int, special: String) -> void:
 	if style:
 		style.bg_color = bg_color
 
-	var fg_color := Color(str(data["fg"]))
+	var fg_color := Color(data["fg"] as String)
 
 	var val_lbl: Label = panel.get_node_or_null("ValueLabel") as Label
 	if val_lbl:
@@ -220,8 +237,8 @@ func _spawn_tile(instant: bool) -> bool:
 		return false
 
 	var pos: Vector2i = empties.pick_random()
-	var value := 2 if randf() > 0.1 else 4
-	var special := "bloom" if randf() < BLOOM_CHANCE else "none"
+	var value := _random_spawn_value()
+	var special := "bloom" if randf() < bloom_chance else "none"
 	grid[pos.y][pos.x] = {"value": value, "special": special}
 
 	var tile := _create_tile_node(value, special)
@@ -241,9 +258,24 @@ func _spawn_tile(instant: bool) -> bool:
 
 	return true
 
+func _random_spawn_value() -> int:
+	var keys: Array = spawn_weights.keys()
+	var total := 0
+	for k in keys:
+		total += int(spawn_weights[k])
+	if total <= 0:
+		return 2
+	var roll := randi() % total
+	var acc := 0
+	for k in keys:
+		acc += int(spawn_weights[k])
+		if roll < acc:
+			return int(k)
+	return 2
+
 # Bloom effect: sprout 1-2 seeds floating up from nearby empty cells
 func _spawn_bloom_seeds(near_pos: Vector2i) -> void:
-	var count := 1 + (1 if randf() < 0.35 else 0)
+	var count := 2 if randf() < 0.35 else 1
 	var nbrs := _neighbors(near_pos)
 	nbrs.shuffle()
 	var spawned := 0
